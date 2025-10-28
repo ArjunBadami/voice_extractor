@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# Env
+.venv/
+
+# Data
+app.db
+data/
+samples/
+
+# Editors
+.vscode/
+.idea/

@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Voice Recorder</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 40px; }
+    button { padding: 10px 16px; border-radius: 10px; border: 1px solid #ddd; margin-right: 8px; cursor: pointer; }
+    pre { background: #f7f7f7; padding: 12px; border-radius: 8px; overflow:auto; }
+    .row { margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Voice Recording & Data Extraction</h1>
+  <div class="row">
+    <button id="startBtn">Start</button>
+    <button id="stopBtn" disabled>Stop & Upload</button>
+    <span id="status"></span>
+  </div>
+  <div class="row">
+    <audio id="playback" controls></audio>
+  </div>
+  <div class="row">
+    <h3>Response</h3>
+    <pre id="responseBox"></pre>
+  </div>
+
+<script>
+let mediaRecorder;
+let chunks = [];
+let stream;
+
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const statusEl = document.getElementById('status');
+const playback = document.getElementById('playback');
+const responseBox = document.getElementById('responseBox');
+
+startBtn.onclick = async () => {
+  chunks = [];
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(chunks, { type: 'audio/webm;codecs=opus' });
+      playback.src = URL.createObjectURL(blob);
+      await uploadBlob(blob);
+    };
+    mediaRecorder.start();
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    statusEl.textContent = "Recording...";
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = "Mic permission denied or unavailable.";
+  }
+};
+
+stopBtn.onclick = () => {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+    stream.getTracks().forEach(t => t.stop());
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    statusEl.textContent = "Uploading...";
+  }
+};
+
+async function uploadBlob(blob) {
+  const form = new FormData();
+  form.append('file', blob, 'recording.webm');
+
+  const res = await fetch('/upload', {
+    method: 'POST',
+    body: form
+  });
+  const data = await res.json();
+  statusEl.textContent = "Done";
+  responseBox.textContent = JSON.stringify(data, null, 2);
+}
+</script>
+</body>
+</html>
